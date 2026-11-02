@@ -1,11 +1,21 @@
 import json
 import os
+import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import boto3
 
+# Tabla principal de TODOs
 TABLE_NAME = os.environ["TABLE_NAME"]
 table = boto3.resource("dynamodb").Table(TABLE_NAME)
+
+# Recursos de la Parte 2
+TOPIC_ARN = os.environ["TOPIC_ARN"]
+AUDIT_TABLE_NAME = os.environ["AUDIT_TABLE_NAME"]
+
+audit_table = boto3.resource("dynamodb").Table(AUDIT_TABLE_NAME)
+sns = boto3.client("sns")
 
 
 def _default(obj):
@@ -30,3 +40,26 @@ def parse_body(event):
         return json.loads(event.get("body") or "{}")
     except json.JSONDecodeError:
         return None
+
+
+def publish_event(event_type, todo):
+    message = {
+        "eventId": str(uuid.uuid4()),
+        "eventType": event_type,
+        "occurredAt": datetime.now(timezone.utc).isoformat(),
+        "source": "todos-api",
+        "data": todo,
+    }
+
+    sns.publish(
+        TopicArn=TOPIC_ARN,
+        Message=json.dumps(message, default=_default),
+        MessageAttributes={
+            "eventType": {
+                "DataType": "String",
+                "StringValue": event_type,
+            }
+        },
+    )
+
+    return message

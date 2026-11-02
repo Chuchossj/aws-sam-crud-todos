@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from utils import table, response, parse_body
+from utils import table, response, parse_body, publish_event
 
 
 def handler(event, context):
@@ -26,5 +26,8 @@ def handler(event, context):
     }
 
     table.put_item(Item=item)
+
+    # Publicar evento de creación en SNS
+    publish_event("todo.created", item)
 
     return response(201, item)
